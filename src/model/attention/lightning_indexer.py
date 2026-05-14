@@ -173,10 +173,17 @@ class LightningIndexer(nn.Module):
         k = min(self.topk, num_blocks)
         topk_scores, topk_indices = masked_scores.topk(k, dim=-1)  # (B, N, k)
 
-        # Gather selected KV entries
+        # Clamp indices to valid range (early tokens may have all -inf scores)
+        topk_indices = topk_indices.clamp(0, num_blocks - 1)
+
+        # Gather selected KV entries using simple indexing (avoids IndexPut backward issues)
         # compressed_kv: (B, num_blocks, kv_dim)
-        topk_indices_expanded = topk_indices.unsqueeze(-1).expand(-1, -1, -1, compressed_kv.shape[-1])
-        selected_kv = compressed_kv.unsqueeze(1).expand(-1, N, -1, -1)
-        selected_kv = torch.gather(selected_kv, 2, topk_indices_expanded)
+        kv_dim = compressed_kv.shape[-1]
+        # Flatten batch and seq for gathering
+        flat_indices = topk_indices.reshape(B, N * k)  # (B, N*k)
+        flat_indices = flat_indices.unsqueeze(-1).expand(-1, -1, kv_dim)  # (B, N*k, kv_dim)
+        selected_kv = torch.gather(compressed_kv, 1, flat_indices)  # (B, N*k, kv_dim)
+        selected_kv = selected_kv.reshape(B, N, k, kv_dim)
 
         return selected_kv, topk_indices
+
