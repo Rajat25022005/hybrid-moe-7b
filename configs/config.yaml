@@ -1,0 +1,144 @@
+model:
+  hidden_dim: 2048
+  num_layers: 32
+  vocab_size: 32000
+  max_seq_len: 4096
+
+  # Layer schedule: type for each of the 32 layers
+  # Types: full_attn, csa, hca, mamba2, ffn_only
+  layer_types:
+    - full_attn   # 0  - global anchor
+    - mamba2      # 1
+    - csa         # 2
+    - mamba2      # 3
+    - ffn_only    # 4
+    - mamba2      # 5
+    - hca         # 6
+    - ffn_only    # 7
+    - mamba2      # 8
+    - csa         # 9
+    - ffn_only    # 10
+    - mamba2      # 11
+    - hca         # 12
+    - ffn_only    # 13
+    - mamba2      # 14
+    - full_attn   # 15 - global anchor
+    - ffn_only    # 16
+    - mamba2      # 17
+    - csa         # 18
+    - ffn_only    # 19
+    - mamba2      # 20
+    - hca         # 21
+    - ffn_only    # 22
+    - mamba2      # 23
+    - ffn_only    # 24
+    - mamba2      # 25
+    - ffn_only    # 26
+    - mamba2      # 27
+    - ffn_only    # 28
+    - mamba2      # 29
+    - ffn_only    # 30
+    - ffn_only    # 31
+
+  # Attention (shared across Full/CSA/HCA)
+  num_query_heads: 32
+  head_dim: 64
+  csa_hca_head_dim: 128
+  query_compress_dim: 512
+  num_output_groups: 4
+  group_output_dim: 512
+  rope_dim: 64
+  sliding_window_size: 128
+
+  # CSA
+  csa_compress_rate: 4
+  csa_indexer_heads: 32
+  csa_indexer_head_dim: 64
+  csa_topk: 128
+
+  # HCA
+  hca_compress_rate: 64
+
+  # Mamba2
+  mamba2_state_dim: 128
+  mamba2_conv_dim: 4
+  mamba2_expand: 2
+  mamba2_head_dim: 64
+  mamba2_num_heads: 32
+
+  # MoE
+  num_shared_experts: 1
+  num_routed_experts: 32
+  num_active_experts: 4
+  expert_intermediate_dim: 1024
+  shared_expert_intermediate_dim: 2048
+  moe_activation: "sqrt_softplus"
+
+  # mHC
+  mhc_expansion: 4
+  mhc_sinkhorn_iters: 20
+
+  # MTP
+  mtp_depth: 1
+
+training:
+  precision: "bf16"
+  gradient_checkpointing: true
+
+  # Optimizer
+  muon_momentum: 0.95
+  muon_weight_decay: 0.1
+  muon_rms_rescale: 0.18
+  adamw_beta1: 0.9
+  adamw_beta2: 0.95
+  adamw_eps: 1.0e-20
+  adamw_weight_decay: 0.1
+
+  # LR schedule
+  warmup_steps: 2000
+  peak_lr: 2.7e-4
+  min_lr: 2.7e-5
+
+  # Batch
+  batch_size: 4
+  grad_accum_steps: 8
+
+  # Progressive context stages
+  context_stages:
+    - seq_len: 4096
+      attention_mode: "dense"
+      total_steps: 50000
+    - seq_len: 16384
+      attention_mode: "dense"
+      total_steps: 20000
+    - seq_len: 65536
+      attention_mode: "sparse"
+      total_steps: 10000
+
+  # MoE balance
+  aux_loss_free: true
+  bias_update_speed: 0.001
+  balance_loss_weight: 0.0001
+  hash_routing_layers: 3
+
+  # MTP
+  mtp_loss_weight: 0.3
+  mtp_loss_weight_decay: 0.1
+
+  # Checkpointing
+  checkpoint_dir: "./checkpoints"
+  save_every_steps: 1000
+  keep_last_n: 5
+  save_optimizer: true
+
+  # Logging
+  log_every_steps: 10
+  eval_every_steps: 2000
+  wandb_project: "hybrid-moe-7b"
+  wandb_run_name: null
+
+  # Data
+  dataset_name: "HuggingFaceFW/fineweb-edu"
+  dataset_subset: "sample-10BT"
+  tokenizer_path: "./tokenizer"
+  num_workers: 4
