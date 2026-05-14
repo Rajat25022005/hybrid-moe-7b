@@ -104,16 +104,18 @@ training:
   grad_accum_steps: 8
 
   # Progressive context stages
+  # First run: reduced steps to validate in ~10hrs on Kaggle TPU
+  # Full training values: 50000 / 20000 / 10000
   context_stages:
     - seq_len: 4096
       attention_mode: "dense"
-      total_steps: 50000
+      total_steps: 10000
     - seq_len: 16384
       attention_mode: "dense"
-      total_steps: 20000
+      total_steps: 5000
     - seq_len: 65536
       attention_mode: "sparse"
-      total_steps: 10000
+      total_steps: 2000
 
   # MoE balance
   aux_loss_free: true

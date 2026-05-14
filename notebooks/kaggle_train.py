@@ -43,23 +43,16 @@ print(f"XLA device: {device}")
 # =============================================================================
 # CELL 2: Get the Code
 # =============================================================================
-# Option A: If you uploaded MoE/ as a Kaggle Dataset
-DATASET_PATH = "/kaggle/input/hybrid-moe-7b"  # <-- Change this to your dataset name
-CODE_DIR = "/kaggle/working/MoE"
+CODE_DIR = "/kaggle/working/hybrid-moe-7b"
 
-if os.path.exists(DATASET_PATH):
-    print(f"Using uploaded dataset from {DATASET_PATH}")
-    run(f"cp -r {DATASET_PATH} {CODE_DIR}")
+if not os.path.exists(CODE_DIR):
+    run("git clone https://github.com/Rajat25022005/hybrid-moe-7b.git " + CODE_DIR)
 else:
-    # Option B: Clone from GitHub
-    GITHUB_REPO = "YOUR_USERNAME/MoE"  # <-- Change this
-    print(f"Cloning from GitHub: {GITHUB_REPO}")
-    run(f"git clone https://github.com/{GITHUB_REPO}.git {CODE_DIR}")
+    print(f"Code already exists at {CODE_DIR}")
 
 os.chdir(CODE_DIR)
 sys.path.insert(0, CODE_DIR)
 print(f"Working directory: {os.getcwd()}")
-print(f"Files: {os.listdir('.')}")
 
 # =============================================================================
 # CELL 3: Quick Smoke Test (Tiny Model — ~30 seconds)
