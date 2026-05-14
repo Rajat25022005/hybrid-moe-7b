@@ -122,7 +122,7 @@ import time
 import json
 
 # Load config
-model_config, train_config = load_config("configs/config.yaml")
+model_config, train_config = load_config("configs/config_2b.yaml")
 
 # Override checkpoint dir for Kaggle
 train_config.checkpoint.checkpoint_dir = "/kaggle/working/checkpoints"
