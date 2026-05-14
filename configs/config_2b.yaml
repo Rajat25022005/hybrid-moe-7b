@@ -2,7 +2,7 @@ model:
   hidden_dim: 1024
   num_layers: 32
   vocab_size: 32000
-  max_seq_len: 4096
+  max_seq_len: 8192
 
   # Layer schedule (same hybrid pattern, 32 layers)
   layer_types:
@@ -102,21 +102,19 @@ training:
   batch_size: 8
   grad_accum_steps: 4
 
-  # Progressive context stages
-  # ~20B tokens total → Chinchilla-optimal for ~800M activated
-  # Stage 1: 8 * 4 * 4096 = 131K tokens/step → 15K steps = ~2B tokens
-  # Stage 2: adjust batch down for longer seqs
-  # Stage 3: sparse attention final stage
+  # Progressive context stages for 2B scale
+  # Similar models: Gemma-2B (8K), Phi-2 (2K), SmolLM-1.7B (2K)
+  # ~20B tokens total
   context_stages:
+    - seq_len: 2048
+      attention_mode: "dense"
+      total_steps: 50000
     - seq_len: 4096
       attention_mode: "dense"
-      total_steps: 40000
-    - seq_len: 16384
-      attention_mode: "dense"
-      total_steps: 15000
-    - seq_len: 65536
+      total_steps: 20000
+    - seq_len: 8192
       attention_mode: "sparse"
-      total_steps: 5000
+      total_steps: 10000
 
   # MoE balance
   aux_loss_free: true
