@@ -29,6 +29,9 @@ def run(cmd):
 run("pip install -q pyyaml einops tokenizers datasets wandb safetensors tqdm")
 
 # Verify TPU is available
+import warnings
+warnings.filterwarnings("ignore", message=".*tensorflow.*")
+
 import torch
 import torch_xla
 import torch_xla.core.xla_model as xm
@@ -37,7 +40,7 @@ import torch_xla.runtime as xr
 print(f"PyTorch: {torch.__version__}")
 print(f"Torch-XLA: {torch_xla.__version__}")
 print(f"TPU cores available: {xr.global_runtime_device_count()}")
-device = xm.xla_device()
+device = torch_xla.device()
 print(f"XLA device: {device}")
 
 # =============================================================================
@@ -91,11 +94,11 @@ x = torch.randint(0, 1000, (2, 64)).to(device)
 t = torch.randint(0, 1000, (2, 64)).to(device)
 
 out = model(x, target_ids=t, use_sparse=False)
-xm.mark_step()  # Force XLA compilation
+torch_xla.sync()  # Force XLA compilation
 
 loss = out['loss'] + 0.3 * out['mtp_loss']
 loss.backward()
-xm.mark_step()
+torch_xla.sync()
 
 print(f"✓ Forward:  logits={out['logits'].shape}, loss={out['loss'].item():.4f}")
 print(f"✓ Backward: gradients computed successfully")
@@ -150,7 +153,7 @@ print(f"Activated params: {param_info['activated_billions']:.3f}B ({param_info['
 # Move to TPU
 print("Moving model to TPU...")
 model = model.to(device)
-xm.mark_step()
+torch_xla.sync()
 print(f"✓ Model on {device}")
 
 # Create optimizers
@@ -249,7 +252,7 @@ for stage_idx, stage in enumerate(train_config.context_stages):
 
         if (stage_step + 1) % train_config.grad_accum_steps == 0:
             # Clip gradients
-            xm.reduce_gradients(muon_opt)  # Sync gradients across TPU cores
+            # Note: gradient sync handled by torch_xla on multi-chip automatically
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
             # Step optimizers
@@ -257,7 +260,7 @@ for stage_idx, stage in enumerate(train_config.context_stages):
             adamw_opt.step()
             muon_opt.zero_grad()
             adamw_opt.zero_grad()
-            xm.mark_step()  # Execute pending XLA ops
+            torch_xla.sync()  # Execute pending XLA ops
 
             # LR update
             lr = scheduler.step()
@@ -286,7 +289,7 @@ for stage_idx, stage in enumerate(train_config.context_stages):
         # Checkpoint
         if (global_step + 1) % train_config.checkpoint.save_every_steps == 0:
             print(f"Saving checkpoint at step {global_step}...")
-            xm.mark_step()
+            torch_xla.sync()
             # Move model to CPU for saving
             save_checkpoint(
                 model=model,

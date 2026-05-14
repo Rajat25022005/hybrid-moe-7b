@@ -5,7 +5,12 @@ Handles all 5 block types: full_attn, csa, hca, mamba2, ffn_only.
 
 import torch
 import torch.nn as nn
-from torch.utils.checkpoint import checkpoint as grad_checkpoint
+
+# Use XLA-compatible gradient checkpointing when available
+try:
+    from torch_xla.utils.checkpoint import checkpoint as grad_checkpoint
+except ImportError:
+    from torch.utils.checkpoint import checkpoint as grad_checkpoint
 
 from src.model.normalization import RMSNorm
 from src.model.attention.full_attention import FullAttention
@@ -171,10 +176,10 @@ class TransformerBlock(nn.Module):
         use_sparse: bool = True,
     ) -> tuple:
         if self.use_gradient_checkpointing and self.training:
-            X, aux_loss = grad_checkpoint(
-                self._forward_impl, X, use_sparse,
-                use_reentrant=False,
-            )
+            # Wrap in lambda to avoid issues with bool arg in checkpointing
+            def run_fn(x):
+                return self._forward_impl(x, use_sparse)
+            X, aux_loss = grad_checkpoint(run_fn, X)
         else:
             X, aux_loss = self._forward_impl(X, use_sparse)
         return X, aux_loss
