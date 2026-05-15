@@ -4,6 +4,7 @@ DeepSeekMoE Layer — fine-grained MoE with shared + routed experts.
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from src.model.moe.expert import ExpertFFN
 from src.model.moe.router import MoERouter
@@ -84,20 +85,19 @@ class DeepSeekMoE(nn.Module):
         else:
             weights, indices, aux_loss = self.router(flat_hidden)
 
-        # 3. Compute routed expert outputs
+        # 3. Compute routed expert outputs (efficient masked routing for CUDA)
         routed_output = torch.zeros(B * N, D, device=hidden_states.device, dtype=hidden_states.dtype)
 
         for k in range(self.num_active):
             expert_idx = indices[:, k]   # (B*N,)
             expert_wt = weights[:, k]    # (B*N,)
 
-            # Group tokens by expert for efficient batch processing
             for e in range(self.num_routed):
                 mask = (expert_idx == e)
                 if mask.any():
                     expert_input = flat_hidden[mask]
                     expert_out = self.routed_experts[e](expert_input)
-                    routed_output[mask] += expert_wt[mask].unsqueeze(-1) * expert_out
+                    routed_output[mask] = routed_output[mask] + expert_wt[mask].unsqueeze(-1) * expert_out
 
         routed_output = routed_output.view(B, N, D)
 

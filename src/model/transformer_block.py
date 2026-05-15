@@ -175,4 +175,12 @@ class TransformerBlock(nn.Module):
         X: torch.Tensor,
         use_sparse: bool = True,
     ) -> tuple:
-        return self._forward_impl(X, use_sparse)
+        if self.use_gradient_checkpointing and self.training:
+            from torch.utils.checkpoint import checkpoint
+            def run_fn(x):
+                return self._forward_impl(x, use_sparse)
+            X, aux_loss = checkpoint(run_fn, X, use_reentrant=False)
+        else:
+            X, aux_loss = self._forward_impl(X, use_sparse)
+        return X, aux_loss
+
